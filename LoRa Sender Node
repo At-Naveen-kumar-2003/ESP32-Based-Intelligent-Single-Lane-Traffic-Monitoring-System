@@ -2,7 +2,7 @@
 #include <LoRa.h>
 
 #define BUTTON_IN  6
-#define BUTTON_OUT 7
+#define BUTTON_OUT 7 
 
 int firstPress = 0;
 
