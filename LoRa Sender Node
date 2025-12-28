@@ -1,38 +1,65 @@
 #include <SPI.h>
 #include <LoRa.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
 
-#define BUTTON_IN  6
-#define BUTTON_OUT 7 
+LiquidCrystal_I2C lcd(0x27, 16, 2);
 
-int firstPress = 0;
+#define ENTRY_SENSOR  6
+#define EXIT_SENSOR   7
+
+int vehicleCount = 0;
+String receivedData = "";
+unsigned long lastUpdate = 0;
+int firstTrigger = 0;
 
 void setup() {
-  pinMode(BUTTON_IN, INPUT);
-  pinMode(BUTTON_OUT, INPUT);
+  pinMode(ENTRY_SENSOR, INPUT);
+  pinMode(EXIT_SENSOR, INPUT);
+
   Serial.begin(9600);
 
   if (!LoRa.begin(433E6)) {
     while (1);
   }
+
+  lcd.init();
+  lcd.backlight();
+
+  lcd.setCursor(0, 0);
+  lcd.print("Side A Ready");
+  lcd.setCursor(0, 1);
+  lcd.print("Waiting...");
+
+  LoRa.onReceive(onReceive);
+  LoRa.receive();
 }
 
 void loop() {
-  bool inState = digitalRead(BUTTON_IN);
-  bool outState = digitalRead(BUTTON_OUT);
+  bool entryState = digitalRead(ENTRY_SENSOR);
+  bool exitState  = digitalRead(EXIT_SENSOR);
 
-  if (inState == HIGH && firstPress == 0) firstPress = 1;
-  if (outState == HIGH && firstPress == 0) firstPress = 2;
+  if (entryState == HIGH && firstTrigger == 0) firstTrigger = 1;
+  if (exitState  == HIGH && firstTrigger == 0) firstTrigger = 2;
 
-  if (inState == HIGH && firstPress == 2) {
-    sendPacket("OUT-1");
-    while (digitalRead(BUTTON_IN) == HIGH);
-    firstPress = 0;
+  if (entryState == HIGH && firstTrigger == 2) {
+    sendPacket("IN+1");
+    vehicleCount++;
+    while (digitalRead(ENTRY_SENSOR) == HIGH);
+    firstTrigger = 0;
   }
 
-  if (outState == HIGH && firstPress == 1) {
-    sendPacket("IN+1");
-    while (digitalRead(BUTTON_OUT) == HIGH);
-    firstPress = 0;
+  if (exitState == HIGH && firstTrigger == 1) {
+    sendPacket("OUT-1");
+    vehicleCount--;
+    if (vehicleCount < 0) vehicleCount = 0;
+    while (digitalRead(EXIT_SENSOR) == HIGH);
+    firstTrigger = 0;
+  }
+
+  if (millis() - lastUpdate > 500) {
+    updateDisplay();
+    lastUpdate = millis();
   }
 }
 
@@ -40,4 +67,43 @@ void sendPacket(String msg) {
   LoRa.beginPacket();
   LoRa.print(msg);
   LoRa.endPacket();
+  LoRa.receive();
+}
+
+void onReceive(int packetSize) {
+  if (packetSize == 0) return;
+
+  receivedData = "";
+  while (LoRa.available()) {
+    receivedData += (char)LoRa.read();
+  }
+
+  int plusIndex = receivedData.indexOf('+');
+  int minusIndex = receivedData.indexOf('-');
+
+  if (plusIndex != -1) {
+    vehicleCount += receivedData.substring(plusIndex + 1).toInt();
+  }
+
+  if (minusIndex != -1) {
+    vehicleCount -= receivedData.substring(minusIndex + 1).toInt();
+  }
+
+  if (vehicleCount < 0) vehicleCount = 0;
+}
+
+void updateDisplay() {
+  lcd.clear();
+  if (vehicleCount == 0) {
+    lcd.setCursor(0, 0);
+    lcd.print("Lane Free");
+    lcd.setCursor(0, 1);
+    lcd.print("Vehicles: 0");
+  } else {
+    lcd.setCursor(0, 0);
+    lcd.print("Lane Busy");
+    lcd.setCursor(0, 1);
+    lcd.print("Vehicles: ");
+    lcd.print(vehicleCount);
+  }
 }
