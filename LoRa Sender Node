@@ -1,0 +1,43 @@
+#include <SPI.h>
+#include <LoRa.h>
+
+#define BUTTON_IN  6
+#define BUTTON_OUT 7
+
+int firstPress = 0;
+
+void setup() {
+  pinMode(BUTTON_IN, INPUT);
+  pinMode(BUTTON_OUT, INPUT);
+  Serial.begin(9600);
+
+  if (!LoRa.begin(433E6)) {
+    while (1);
+  }
+}
+
+void loop() {
+  bool inState = digitalRead(BUTTON_IN);
+  bool outState = digitalRead(BUTTON_OUT);
+
+  if (inState == HIGH && firstPress == 0) firstPress = 1;
+  if (outState == HIGH && firstPress == 0) firstPress = 2;
+
+  if (inState == HIGH && firstPress == 2) {
+    sendPacket("OUT-1");
+    while (digitalRead(BUTTON_IN) == HIGH);
+    firstPress = 0;
+  }
+
+  if (outState == HIGH && firstPress == 1) {
+    sendPacket("IN+1");
+    while (digitalRead(BUTTON_OUT) == HIGH);
+    firstPress = 0;
+  }
+}
+
+void sendPacket(String msg) {
+  LoRa.beginPacket();
+  LoRa.print(msg);
+  LoRa.endPacket();
+}
