@@ -30,7 +30,7 @@ The system prevents opposite-direction vehicle conflicts and improves safety wit
 - ESP32 Development Board (2 units)
 - LoRa Module (SX1278 / RA-02) – 433 MHz
 - 16×2 I2C LCD Display (2 units)
-- IR Sensors / Push Buttons (Entry & Exit)
+- IR Sensors (Entry & Exit)
 - Connecting Wires
 - Power Supply (USB / Battery)
 
@@ -50,4 +50,4 @@ Each LCD shows:
 - Lane Status (FREE / BUSY)
 - Number of vehicles currently inside the lane
 
-Example:
+
